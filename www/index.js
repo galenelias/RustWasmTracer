@@ -2,10 +2,11 @@
 
 import { Universe, Cell } from "RustWasmTracer";
 
-const CELL_SIZE = 5; // px
+const CELL_SIZE = 3; // px
 const GRID_COLOR = "#CCCCCC";
-const DEAD_COLOR = "#FFFFFF";
-const ALIVE_COLOR = "#000000";
+
+const SAND_COLOR = "#FFFFFF";
+const CLAY_COLOR = "#808080";
 
 // Construct the universe, and get its width and height.
 const universe = Universe.new();
@@ -67,9 +68,9 @@ const drawCells = () => {
     for (let col = 0; col < width; col++) {
       const idx = getIndex(row, col);
 
-      ctx.fillStyle = cells[idx] === Cell.Dead
-        ? DEAD_COLOR
-        : ALIVE_COLOR;
+      ctx.fillStyle = cells[idx] === Cell.Sand
+        ? SAND_COLOR
+        : CLAY_COLOR;
 
       ctx.fillRect(
         col * (CELL_SIZE + 1) + 1,
