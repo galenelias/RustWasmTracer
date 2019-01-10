@@ -3,10 +3,13 @@
 import { Universe, Cell } from "RustWasmTracer";
 
 const CELL_SIZE = 3; // px
+const BORDER_SIZE = 0;
 const GRID_COLOR = "#CCCCCC";
 
 const SAND_COLOR = "#FFFFFF";
 const CLAY_COLOR = "#808080";
+const SETTLED_WATER_COLOR = "#0000FF";
+const FLOWING_WATER_COLOR = "#3399FF";
 
 // Construct the universe, and get its width and height.
 const universe = Universe.new();
@@ -16,8 +19,8 @@ const height = universe.height();
 // Give the canvas room for all of our cells and a 1px border
 // around each of them.
 const canvas = document.getElementById("game-of-life-canvas");
-canvas.height = (CELL_SIZE + 1) * height + 1;
-canvas.width = (CELL_SIZE + 1) * width + 1;
+canvas.height = (CELL_SIZE + BORDER_SIZE) * height + 1;
+canvas.width = (CELL_SIZE + BORDER_SIZE) * width + 1;
 
 const ctx = canvas.getContext('2d');
 
@@ -31,19 +34,23 @@ const renderLoop = () => {
 };
 
 const drawGrid = () => {
+  if (BORDER_SIZE == 0) {
+    return;
+  }
+
 	ctx.beginPath();
 	ctx.strokeStyle = GRID_COLOR;
   
 	// Vertical lines.
 	for (let i = 0; i <= width; i++) {
-	  ctx.moveTo(i * (CELL_SIZE + 1) + 1, 0);
-	  ctx.lineTo(i * (CELL_SIZE + 1) + 1, (CELL_SIZE + 1) * height + 1);
+	  ctx.moveTo(i * (CELL_SIZE + BORDER_SIZE) + 1, 0);
+	  ctx.lineTo(i * (CELL_SIZE + BORDER_SIZE) + 1, (CELL_SIZE + BORDER_SIZE) * height + 1);
 	}
   
 	// Horizontal lines.
 	for (let j = 0; j <= height; j++) {
-	  ctx.moveTo(0,                           j * (CELL_SIZE + 1) + 1);
-	  ctx.lineTo((CELL_SIZE + 1) * width + 1, j * (CELL_SIZE + 1) + 1);
+	  ctx.moveTo(0,                                     j * (CELL_SIZE + BORDER_SIZE) + 1);
+	  ctx.lineTo((CELL_SIZE + BORDER_SIZE) * width + 1, j * (CELL_SIZE + BORDER_SIZE) + 1);
 	}
   
 	ctx.stroke();
@@ -51,8 +58,6 @@ const drawGrid = () => {
 
 // Import the WebAssembly memory at the top of the file.
 import { memory } from "RustWasmTracer/RustWasmTracer_bg";
-
-// ...
 
 const getIndex = (row, column) => {
   return row * width + column;
@@ -68,13 +73,16 @@ const drawCells = () => {
     for (let col = 0; col < width; col++) {
       const idx = getIndex(row, col);
 
-      ctx.fillStyle = cells[idx] === Cell.Sand
-        ? SAND_COLOR
-        : CLAY_COLOR;
+      switch (cells[idx]) {
+        case Cell.Sand: ctx.fillStyle = SAND_COLOR; break;
+        case Cell.Clay: ctx.fillStyle = CLAY_COLOR; break;
+        case Cell.FlowingWater: ctx.fillStyle = FLOWING_WATER_COLOR; break;
+        case Cell.SettledWater: ctx.fillStyle = SETTLED_WATER_COLOR; break;
+      }
 
       ctx.fillRect(
-        col * (CELL_SIZE + 1) + 1,
-        row * (CELL_SIZE + 1) + 1,
+        col * (CELL_SIZE + BORDER_SIZE) + BORDER_SIZE,
+        row * (CELL_SIZE + BORDER_SIZE) + BORDER_SIZE,
         CELL_SIZE,
         CELL_SIZE
       );

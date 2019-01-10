@@ -20,6 +20,20 @@ cfg_if! {
 }
 
 #[wasm_bindgen]
+extern "C" {
+    // Use `js_namespace` here to bind `console.log(..)` instead of just
+    // `log(..)`
+    #[wasm_bindgen(js_namespace = console)]
+    fn log(s: &str);
+}
+
+macro_rules! console_log {
+    // Note that this is using the `log` function imported above during
+    // `bare_bones`
+    ($($t:tt)*) => (log(&format_args!($($t)*).to_string()))
+}
+
+#[wasm_bindgen]
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Cell {
@@ -48,33 +62,16 @@ impl Universe {
         (row * self.width + column) as usize
     }
 
-    fn live_neighbor_count(&self, row: usize, column: usize) -> u8 {
-        let mut count = 0;
-        for delta_row in [self.height - 1, 0, 1].iter().cloned() {
-            for delta_col in [self.width - 1, 0, 1].iter().cloned() {
-                if delta_row == 0 && delta_col == 0 {
-                    continue;
-                }
-
-                let neighbor_row = (row + delta_row) % self.height;
-                let neighbor_col = (column + delta_col) % self.width;
-                let idx = self.get_index(neighbor_row, neighbor_col);
-                count += self.cells[idx] as u8;
-            }
-        }
-        count
+    fn get_cell(&self, row: usize, column: usize) -> Cell {
+        self.cells[self.get_index(row, column)]
     }
- }
 
- #[wasm_bindgen]
-impl Universe {
-    pub fn tick(&mut self, y_start: usize, x_start: usize) {
-        let mut next = self.cells.clone();
-
-        for y in y_start..grid.len() {
+   fn drip(&self, y_start: usize, x_start: usize, next: &mut Vec<Cell>) -> bool {
+        // console_log!("drip: {}, {}, min_x = {}", y_start, x_start, self.min_x);
+        for y in y_start..self.height {
             // Flow through existing wet sand
-            if grid[y][x_start] == '|' || grid[y][x_start] == '.' {
-                grid[y][x_start] = '|';
+            if self.get_cell(y, x_start) == Cell::FlowingWater || self.get_cell(y, x_start) == Cell::Sand {
+                next[self.get_index(y, x_start)] = Cell::FlowingWater;
                 continue;
             }
 
@@ -85,27 +82,27 @@ impl Universe {
             let mut hit_right_wall = false;
 
             for x in (0..x_start).rev() {
-                if grid[flow_y][x] == '#' {
+                if self.get_cell(flow_y, x) == Cell::Clay {
                     hit_left_wall = true;
                     break;
                 }
-                grid[flow_y][x] = '|';
-                if grid[y][x] != '#' && grid[y][x] != '~' {
-                    if drip(flow_y, x, grid) {
+                next[self.get_index(flow_y, x)] = Cell::FlowingWater;
+                if self.get_cell(y, x) != Cell::Clay && self.get_cell(y, x) != Cell::SettledWater {
+                    if self.drip(flow_y, x, next) {
                         made_progress = true;
                     }
                     break;
                 }
             }
 
-            for x in x_start..2000 {
-                if grid[flow_y][x] == '#' {
+            for x in x_start..self.width {
+                if self.get_cell(flow_y, x) == Cell::Clay {
                     hit_right_wall = true;
                     break;
                 }
-                grid[flow_y][x] = '|';
-                if grid[y][x] != '#' && grid[y][x] != '~' {
-                    if drip(flow_y, x, grid) {
+                next[self.get_index(flow_y, x)] = Cell::FlowingWater;
+                if self.get_cell(y, x) != Cell::Clay && self.get_cell(y, x) != Cell::SettledWater {
+                    if self.drip(flow_y, x, next) {
                         made_progress = true;
                     }
                     break;
@@ -116,28 +113,33 @@ impl Universe {
             if hit_left_wall && hit_right_wall {
                 made_progress = true;
                 for x in (0..x_start).rev() {
-                    if grid[flow_y][x] != '|' {
+                    if self.get_cell(flow_y, x) == Cell::Clay {
                         break;
                     }
-                    grid[flow_y][x] = '~';
+                    next[self.get_index(flow_y, x)] = Cell::SettledWater;
                 }
-                for x in x_start..grid[flow_y].len() {
-                    if grid[flow_y][x] != '|' {
+                for x in x_start..self.width {
+                    if self.get_cell(flow_y, x) == Cell::Clay {
                         break;
                     }
-                    grid[flow_y][x] = '~';
+                    next[self.get_index(flow_y, x)] = Cell::SettledWater;
                 }
             }
             return made_progress;
         }
         return false;
-    }
+   }
+}
 
+ #[wasm_bindgen]
+impl Universe {
+    pub fn tick(&mut self, y_start: usize, x_start: usize) {
+        let mut next = self.cells.clone();
+        self.drip(0, 500 - self.min_x, &mut next);
         self.cells = next;
     }
 
     pub fn new() -> Universe {
-
         let re_input = Regex::new(r"(\w)=(\d+), (\w)=(\d+)..(\d+)").unwrap();
 
         let mut scans: Vec<ClayScan> = vec![];
@@ -159,12 +161,10 @@ impl Universe {
         }
 
         let min_x = scans.iter().map(|s| s.x_range.start()).min().unwrap().clone();
-
         for scan in &mut scans {
             scan.x_range = scan.x_range.start()-min_x ..= scan.x_range.end()-min_x ;
         }
 
-        let min_x = scans.iter().map(|s| s.x_range.start()).min().unwrap().clone();
         let min_y = scans.iter().map(|s| s.y_range.start()).min().unwrap().clone();
         let width = scans.iter().map(|s| s.x_range.end()).max().unwrap() + 1;
         let height = scans.iter().map(|s| s.y_range.end()).max().unwrap() + 1;
@@ -199,7 +199,7 @@ impl Universe {
         self.min_x
     }
 
-     pub fn min_y(&self) -> usize {
+    pub fn min_y(&self) -> usize {
         self.min_y
     }
 
@@ -207,39 +207,6 @@ impl Universe {
         self.cells.as_ptr()
     }
 }
-
-
-
-
-// pub fn solve(inputs : Vec<String>) {
-// 	let re_input = Regex::new(r"(\w)=(\d+), (\w)=(\d+)..(\d+)").unwrap();
-
-// 	let mut grid = vec![vec!['.'; 2000]; 2000];
-// 	let mut min_y = usize::max_value();
-// 	let mut max_y = 0;
-
-// 	for input in inputs {
-// 		let caps = re_input.captures(&input).unwrap();
-// 		let c1 = caps[1].to_string();
-// 		let c2 = caps[2].parse::<usize>().unwrap();
-// 		let c4 = caps[4].parse::<usize>().unwrap();
-// 		let c5 = caps[5].parse::<usize>().unwrap();
-
-// 		if c1 == "x" {
-// 			for y in c4..=c5 {
-// 				max_y = std::cmp::max(max_y, y);
-// 				min_y = std::cmp::min(min_y, y);
-// 				grid[y][c2] = '#';
-// 			}
-// 		} else {
-// 			min_y = std::cmp::min(min_y, c2);
-// 			max_y = std::cmp::max(max_y, c2);
-// 			for x in c4..=c5 {
-// 				grid[c2][x] = '#';
-// 			}
-// 		}
-// 	}
-// }
 
 fn get_input() -> &'static str {
 "y=1160, x=336..349
