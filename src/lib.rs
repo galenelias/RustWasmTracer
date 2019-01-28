@@ -1,5 +1,6 @@
 extern crate cfg_if;
 extern crate wasm_bindgen;
+extern crate web_sys;
 
 mod utils;
 
@@ -117,11 +118,13 @@ pub struct Scene {
 	width: usize,
 	height: usize,
 	pixels: Vec<u8>,
+	time: f64,
 }
 
-
+const SURF_DIST: f64 = 0.01;
 
 impl Scene {
+
 	fn get_index(&self, row: usize, column: usize) -> usize {
 		(row * self.width + column) as usize
 	}
@@ -151,17 +154,25 @@ impl Scene {
 	}
 
 	fn get_light(&self, pt: Vector3) -> f64 {
-		let light_pos = Vector3 { x: 1.0, y: 5.0, z: 6.0 };
+		let t = (self.time / 1000.0) * 2.0;
+		let light_pos = Vector3 { x: 2.0 * t.sin(), y: 5.0, z: 6.0 + 2.0 * t.cos()};
+		// console_log!("Camera: {:?}", light_pos);
+
+		// let light_pos = Vector3 { x: 1.0, y: 5.0, z: 6.0 };
 		let lv = (light_pos - pt).normalize();
 		let normal = self.get_normal(pt);
-		let diffuse = normal.dot_product(&lv);
+		let mut diffuse = normal.dot_product(&lv);
+
+		let dl = self.ray_march(&Ray{ origin: pt + normal * (2.0 * SURF_DIST), direction: lv});
+		if dl < (light_pos - pt).magnitude() {
+			diffuse *= 0.1;
+		}
 		diffuse
 	}
 
 	fn ray_march(&self, ray: &Ray) -> f64 {
 		const MAX_STEPS: usize = 100;
 		const MAX_DIST: f64 = 100.0;
-		const SURF_DIST: f64 = 0.01;
 
 		let mut d0 = 0.0;
 
@@ -186,21 +197,13 @@ impl Scene {
 				let pt = prime_ray.origin + prime_ray.direction * rm;
 				let diffuse_light = self.get_light(pt);
 				let color = diffuse_light;
-
-				// let color = rm / 6.0;
 				let color = if color >= 1.0 { 255 } else { (color * 256.0) as u8 };
-				// console_log!("pr({},{}) = o:{:?}, d:{:?}", y, x, prime_ray.origin, prime_ray.direction);
 
 				let idx = self.get_index(y, x);
 				cells[idx * 4 + 0] = color;
 				cells[idx * 4 + 1] = color;
 				cells[idx * 4 + 2] = color;
-				// cells[idx * 4 + 0] = (norm.x.max(0.0).min(1.0) * 255.0) as u8;
-				// cells[idx * 4 + 1] = (norm.y.max(0.0).min(1.0) * 255.0) as u8;
-				// cells[idx * 4 + 2] = (norm.z.max(0.0).min(1.0) * 255.0) as u8;
 				cells[idx * 4 + 3] = 255;
-
-				// console_log!("pr({},{}) = {:?} {} ({},{},{})", y, x, norm, norm.x.max(0.0).min(1.0), cells[idx * 4 + 0],cells[idx * 4 + 1],cells[idx * 4 + 2]);
 			}
 		}
 	}
@@ -246,6 +249,12 @@ impl Scene {
 		let mut next = self.pixels.clone();
 		self.render(&mut next);
 		self.pixels = next;
+		self.time = web_sys::window()
+			.expect("should have a Window")
+			.performance()
+			.expect("should have a Performance")
+			.now();
+
 	}
 
 	pub fn new() -> Scene {
@@ -259,6 +268,7 @@ impl Scene {
 			width,
 			height,
 			pixels,
+			time: 0.0,
 		}
 	}
 

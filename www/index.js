@@ -50,4 +50,4 @@ const drawCells = () => {
 scene.tick();
 drawCells();
 
-// requestAnimationFrame(renderLoop);
+requestAnimationFrame(renderLoop);
