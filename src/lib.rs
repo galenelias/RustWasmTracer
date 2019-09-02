@@ -156,9 +156,7 @@ impl Scene {
 	fn get_light(&self, pt: Vector3) -> f64 {
 		let t = (self.time / 1000.0) * 2.0;
 		let light_pos = Vector3 { x: 2.0 * t.sin(), y: 5.0, z: 6.0 + 2.0 * t.cos()};
-		// console_log!("Camera: {:?}", light_pos);
 
-		// let light_pos = Vector3 { x: 1.0, y: 5.0, z: 6.0 };
 		let lv = (light_pos - pt).normalize();
 		let normal = self.get_normal(pt);
 		let mut diffuse = normal.dot_product(&lv);
