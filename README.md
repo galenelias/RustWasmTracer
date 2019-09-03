@@ -1,37 +1,12 @@
-# 🦀🕸️ `wasm-pack-template`
+#  `RustWasmTracer`
 
-A template for kick starting a Rust and WebAssembly project using
-[`wasm-pack`](https://github.com/rustwasm/wasm-pack).
+A simple project to play with ray marching in rust, exposed via WebAssembly.
 
-This template is designed for compiling Rust libraries into WebAssembly and
-publishing the resulting package to NPM.
+Based off [wasm-pack-template](https://github.com/rustwasm/wasm-pack-template), using [`wasm-pack`](https://github.com/rustwasm/wasm-pack).
 
-* Want to use the published NPM package in a Website? [Check out
-  `create-wasm-app`.](https://github.com/rustwasm/create-wasm-app)
-* Want to make a monorepo-style Website without publishing to NPM? Check out
-  [`rust-webpack-template`](https://github.com/rustwasm/rust-webpack-template)
-  and/or
-  [`rust-parcel-template`](https://github.com/rustwasm/rust-parcel-template).
-
-## 🔋 Batteries Included
-
-* [`wasm-bindgen`](https://github.com/rustwasm/wasm-bindgen) for communicating
-  between WebAssembly and JavaScript.
-* [`console_error_panic_hook`](https://github.com/rustwasm/console_error_panic_hook)
-  for logging panic messages to the developer console.
-* [`wee_alloc`](https://github.com/rustwasm/wee_alloc), an allocator optimized
-  for small code size.
+![Demo image](assets/RustWasmTracer.png)
 
 ## 🚴 Usage
-
-### 🐑 Use `cargo generate` to Clone this Template
-
-[Learn more about `cargo generate` here.](https://github.com/ashleygwilliams/cargo-generate)
-
-```
-cargo generate --git https://github.com/rustwasm/wasm-pack-template.git --name my-project
-cd my-project
-```
 
 ### 🛠️ Build with `wasm-pack build`
 
@@ -39,14 +14,25 @@ cd my-project
 wasm-pack build
 ```
 
-### 🔬 Test in Headless Browsers with `wasm-pack test`
-
-```
-wasm-pack test --headless --firefox
-```
-
 ### 🎁 Publish to NPM with `wasm-pack publish`
 
 ```
 wasm-pack publish
 ```
+
+### Run via npm
+
+To generate our Rust-compiled to wasm code, in the root directory we run:
+
+```
+npm run build
+```
+This will create our bundled JavaScript module in a new directory dist.
+
+We should be ready to run our project now! In the root directory, we'll run:
+
+```
+npm start
+```
+
+Then in a web browser navigate to `http://localhost:8080`.
